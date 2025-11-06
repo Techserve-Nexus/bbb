@@ -1,11 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import sql from "@/lib/db"
+import connectDB from "@/lib/db"
+import { PaymentModel } from "@/lib/models"
 
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET
 
 export async function POST(req: NextRequest) {
   try {
+    await connectDB()
+    
     const { amount, registrationId } = await req.json()
 
     if (!amount || !registrationId) {
@@ -43,11 +46,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Store payment record in database
-    await sql`
-      INSERT INTO payments (registration_id, razorpay_order_id, amount, status)
-      VALUES (${registrationId}, ${orderData.id}, ${amount}, 'pending')
-      ON CONFLICT (razorpay_order_id) DO NOTHING
-    `
+    await PaymentModel.findOneAndUpdate(
+      { razorpayOrderId: orderData.id },
+      {
+        registrationId,
+        razorpayOrderId: orderData.id,
+        amount,
+        status: "pending",
+      },
+      { upsert: true, new: true }
+    )
 
     return NextResponse.json({
       orderId: orderData.id,

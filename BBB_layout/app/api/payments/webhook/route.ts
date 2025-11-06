@@ -1,11 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createHmac } from "crypto"
-import sql from "@/lib/db"
+import connectDB from "@/lib/db"
+import { PaymentModel } from "@/lib/models"
 
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET
 
 export async function POST(req: NextRequest) {
   try {
+    await connectDB()
+    
     const webhookBody = await req.text()
     const razorpaySignature = req.headers.get("x-razorpay-signature")
 
@@ -26,11 +29,13 @@ export async function POST(req: NextRequest) {
     if (event.event === "payment.authorized") {
       const { order_id, id: paymentId } = event.payload.payment.entity
 
-      await sql`
-        UPDATE payments
-        SET status = 'success', razorpay_payment_id = ${paymentId}, updated_at = NOW()
-        WHERE razorpay_order_id = ${order_id}
-      `
+      await PaymentModel.findOneAndUpdate(
+        { razorpayOrderId: order_id },
+        {
+          status: "success",
+          razorpayPaymentId: paymentId,
+        }
+      )
 
       // Emit email notification (handled in next task)
       console.log("Payment authorized:", { orderId: order_id, paymentId })

@@ -1,15 +1,17 @@
-import sql from "@/lib/db"
+import connectDB from "@/lib/db"
+import { RegistrationModel } from "@/lib/models"
 import { NextResponse } from "next/server"
 
 export async function GET() {
   try {
-    const result = await sql`
-      SELECT COUNT(*) as count FROM registrations 
-      WHERE payment_status = 'success'
-    `
+    await connectDB()
+    
+    const count = await RegistrationModel.countDocuments({ 
+      paymentStatus: "success" 
+    })
 
     return NextResponse.json({
-      count: result[0]?.count || 0,
+      count,
     })
   } catch (error) {
     console.error("Error fetching count:", error)

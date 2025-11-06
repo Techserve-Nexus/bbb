@@ -1,11 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createHmac } from "crypto"
-import sql from "@/lib/db"
+import connectDB from "@/lib/db"
+import { PaymentModel, RegistrationModel } from "@/lib/models"
 
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET
 
 export async function POST(req: NextRequest) {
   try {
+    await connectDB()
+    
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = await req.json()
 
     if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
@@ -24,25 +27,31 @@ export async function POST(req: NextRequest) {
     }
 
     // Update payment status in database
-    const paymentResult = await sql`
-      UPDATE payments
-      SET status = 'success', razorpay_payment_id = ${razorpayPaymentId}, updated_at = NOW()
-      WHERE razorpay_order_id = ${razorpayOrderId}
-      RETURNING registration_id
-    `
+    const payment = await PaymentModel.findOneAndUpdate(
+      { razorpayOrderId },
+      {
+        status: "success",
+        razorpayPaymentId,
+        razorpaySignature,
+      },
+      { new: true }
+    )
 
-    if (paymentResult.length === 0) {
+    if (!payment) {
       return NextResponse.json({ error: "Payment not found" }, { status: 404 })
     }
 
-    const registrationId = paymentResult[0].registration_id
+    const registrationId = payment.registrationId
 
     // Update registration payment status
-    await sql`
-      UPDATE registrations
-      SET payment_status = 'success', payment_id = ${razorpayPaymentId}, payment_reference = ${razorpayOrderId}, updated_at = NOW()
-      WHERE registration_id = ${registrationId}
-    `
+    await RegistrationModel.findOneAndUpdate(
+      { registrationId },
+      {
+        paymentStatus: "success",
+        paymentId: razorpayPaymentId,
+        paymentReference: razorpayOrderId,
+      }
+    )
 
     return NextResponse.json({
       success: true,

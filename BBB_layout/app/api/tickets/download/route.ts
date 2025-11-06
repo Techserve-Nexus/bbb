@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import sql from "@/lib/db"
+import connectDB from "@/lib/db"
+import { RegistrationModel } from "@/lib/models"
 
 export async function GET(req: NextRequest) {
   try {
+    await connectDB()
+    
     const registrationId = req.nextUrl.searchParams.get("registrationId")
 
     if (!registrationId) {
@@ -10,15 +13,11 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch registration
-    const registration = await sql`
-      SELECT * FROM registrations WHERE registration_id = ${registrationId}
-    `
+    const registration = await RegistrationModel.findOne({ registrationId }).lean()
 
-    if (!registration.length) {
+    if (!registration) {
       return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
-
-    const reg = registration[0]
 
     // Generate QR code
     const { generateQRCodeBuffer } = await import("@/lib/qr-generator")
@@ -50,11 +49,11 @@ export async function GET(req: NextRequest) {
             <div class="ticket-left">
               <div class="ticket-header">CHESS EVENT 2025</div>
               <div class="ticket-title">Admit One</div>
-              <div class="ticket-subtitle">${reg.ticket_type} Ticket</div>
+              <div class="ticket-subtitle">${registration.ticketType} Ticket</div>
               <div class="ticket-details">
-                <div class="detail-line"><strong>Name:</strong> ${reg.name}</div>
+                <div class="detail-line"><strong>Name:</strong> ${registration.name}</div>
                 <div class="detail-line"><strong>Registration:</strong> ${registrationId}</div>
-                <div class="detail-line"><strong>Payment Ref:</strong> ${reg.payment_reference}</div>
+                <div class="detail-line"><strong>Payment Ref:</strong> ${registration.paymentReference}</div>
               </div>
             </div>
             <div class="ticket-right">
