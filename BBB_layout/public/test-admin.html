@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #764ba2;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log div {
+            margin: 5px 0;
+        }
+        .success {
+            color: #0f0;
+        }
+        .error {
+            color: #f00;
+        }
+        .info {
+            color: #0af;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 Admin Authentication Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Credentials</h2>
+        <label>Email:</label>
+        <input type="email" id="testEmail" value="rkj9023@gmail.com" placeholder="Admin Email">
+        
+        <label>Password:</label>
+        <input type="password" id="testPassword" value="Rajesh@1234" placeholder="Admin Password">
+        
+        <button onclick="testAuth()">🧪 Test Authentication</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Console Log</h2>
+        <div class="log" id="logArea"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logArea.appendChild(div);
+            logArea.scrollTop = logArea.scrollHeight;
+            console.log(message);
+        }
+
+        async function testAuth() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+
+            log('🔐 Starting Authentication Test', 'info');
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+            log(`Email: ${email}`, 'info');
+            log(`Password: ${password}`, 'info');
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+
+            try {
+                log('📡 Sending GET request to /api/admin/users', 'info');
+                log(`Headers: x-admin-email = ${email}`, 'info');
+                log(`Headers: x-admin-password = ${password}`, 'info');
+
+                const response = await fetch('/api/admin/users', {
+                    method: 'GET',
+                    headers: {
+                        'x-admin-email': email,
+                        'x-admin-password': password,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                log(`📥 Response Status: ${response.status} ${response.statusText}`, 
+                    response.ok ? 'success' : 'error');
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log('✅ AUTHENTICATION SUCCESSFUL!', 'success');
+                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'success');
+                    log(`Total Users: ${data.stats.total}`, 'success');
+                    log(`Verified Payments: ${data.stats.payments.success}`, 'success');
+                    log(`Pending Payments: ${data.stats.payments.pending}`, 'success');
+                    log(`Failed Payments: ${data.stats.payments.failed}`, 'success');
+                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'success');
+                    log(`Users Data: ${JSON.stringify(data.users.slice(0, 2), null, 2)}`, 'info');
+                } else {
+                    log('❌ AUTHENTICATION FAILED!', 'error');
+                    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'error');
+                    log(`Error: ${data.error}`, 'error');
+                    log(`Full Response: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+
+            } catch (error) {
+                log('❌ REQUEST FAILED!', 'error');
+                log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'error');
+                log(`Error Message: ${error.message}`, 'error');
+                log(`Error Stack: ${error.stack}`, 'error');
+            }
+        }
+
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            log('✨ Admin Test Page Loaded', 'success');
+            log('Click the button above to test authentication', 'info');
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        });
+    </script>
+</body>
+</html>
