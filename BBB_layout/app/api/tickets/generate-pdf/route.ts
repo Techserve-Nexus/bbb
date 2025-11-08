@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import sql from "@/lib/db"
+import connectDB from "@/lib/db"
+import { RegistrationModel } from "@/lib/models"
 
 export async function POST(req: NextRequest) {
   try {
+    await connectDB()
+    
     const { registrationId } = await req.json()
 
     if (!registrationId) {
@@ -10,15 +13,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch registration data
-    const registration = await sql`
-      SELECT * FROM registrations WHERE registration_id = ${registrationId}
-    `
+    const registration = await RegistrationModel.findOne({ registrationId }).lean()
 
-    if (!registration.length) {
+    if (!registration) {
       return NextResponse.json({ error: "Registration not found" }, { status: 404 })
     }
-
-    const reg = registration[0]
 
     // Generate QR code
     const { generateQRCodeBuffer } = await import("@/lib/qr-generator")
@@ -26,10 +25,10 @@ export async function POST(req: NextRequest) {
 
     // Create PDF (using simple HTML-based approach)
     const pdfHTML = generateTicketPDF(
-      reg.name,
+      registration.name,
       registrationId,
-      reg.ticket_type,
-      reg.payment_reference,
+      registration.ticketType,
+      registration.paymentReference || "N/A",
       qrBuffer.toString("base64"),
     )
 

@@ -28,6 +28,7 @@ const RegistrationSchema = new Schema<Registration>(
     },
     paymentId: { type: String },
     paymentReference: { type: String },
+    paymentScreenshotUrl: { type: String },
     spouseName: { type: String },
     children: [ChildInfoSchema],
     participations: [{ type: String }],
