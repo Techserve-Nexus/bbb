@@ -94,18 +94,21 @@ export default function Step4Payment({ formData, setFormData }: Step4PaymentProp
       <div className="bg-muted p-8 rounded-lg text-center">
         <h3 className="text-xl font-semibold mb-4">Scan to Pay</h3>
         <div className="bg-white p-4 inline-block rounded-lg shadow-md">
-          <div className="w-64 h-64 bg-gray-200 rounded flex items-center justify-center">
-            {/* Replace with actual QR code */}
-            <div className="text-center">
-              <p className="text-4xl mb-2">📱</p>
-              <p className="text-sm text-gray-600">UPI QR Code</p>
-              <p className="text-xs text-gray-500 mt-2">Scan with any UPI app</p>
-            </div>
+          <div className="w-64 h-64 bg-white rounded flex items-center justify-center overflow-hidden">
+            {/* QR Code Image - Replace 'payment-qr.jpg' with your actual QR code filename */}
+            <Image
+              src="/paymentQR.jpg"
+              alt="Payment QR Code"
+              width={300}
+              height={300}
+              className="object-contain"
+              priority
+            />
           </div>
         </div>
         <div className="mt-4 space-y-2">
-          <p className="font-semibold text-lg">UPI ID: chessevent@upi</p>
-          <p className="text-muted-foreground text-sm">Or pay to the above UPI ID</p>
+          <p className="font-semibold text-lg">UPI Payment QR Code</p>
+          <p className="text-muted-foreground text-sm">Scan with any UPI app to pay</p>
         </div>
       </div>
 

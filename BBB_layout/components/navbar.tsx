@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import bannerConfig from "@/lib/banner-config.json"
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -35,10 +37,14 @@ export default function Navbar() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">♔</span>
-            </div>
-            <span className="font-bold text-xl hidden sm:inline text-foreground">Chess Event</span>
+            <Image
+              src={bannerConfig.logo.src}
+              alt={bannerConfig.logo.alt}
+              width={bannerConfig.logo.width}
+              height={bannerConfig.logo.height}
+              className="h-12 w-auto"
+              priority
+            />
           </Link>
 
           {/* Desktop Navigation */}
