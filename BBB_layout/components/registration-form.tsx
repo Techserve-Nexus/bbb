@@ -7,6 +7,8 @@ import Step1BasicDetails from "./registration-steps/step1-basic-details"
 import Step2Tickets from "./registration-steps/step2-tickets"
 import Step3AdditionalDetails from "./registration-steps/step3-additional-details"
 import Step4Payment from "./registration-steps/step4-payment"
+import { loadRazorpayScript } from "@/lib/razorpay"
+import { useRouter } from "next/navigation"
 
 interface FormData {
   // Step 1
@@ -26,11 +28,13 @@ interface FormData {
   conclavGroups: string[]
   
   // Step 4
+  paymentMethod: "razorpay" | "manual"
   paymentScreenshot?: string
   paymentScreenshotUrl?: string
 }
 
 export default function RegistrationForm() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -47,6 +51,7 @@ export default function RegistrationForm() {
     ],
     participations: [],
     conclavGroups: [],
+    paymentMethod: "manual", // Default to manual payment
     paymentScreenshot: undefined,
     paymentScreenshotUrl: undefined,
   })
@@ -56,6 +61,7 @@ export default function RegistrationForm() {
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [submitError, setSubmitError] = useState("")
   const [registrationId, setRegistrationId] = useState("")
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -104,9 +110,12 @@ export default function RegistrationForm() {
 
   const validateStep4 = () => {
     const newErrors: Record<string, string> = {}
-    if (!formData.paymentScreenshotUrl) {
+    
+    // Only validate screenshot for manual payment
+    if (formData.paymentMethod === "manual" && !formData.paymentScreenshotUrl) {
       newErrors.paymentScreenshot = "Please upload payment screenshot"
     }
+    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -144,11 +153,12 @@ export default function RegistrationForm() {
         contactNo: formData.contactNo,
         email: formData.email,
         ticketType: formData.ticketType,
+        paymentMethod: formData.paymentMethod,
         spouseName: formData.spouseName || undefined,
         children: formData.children.filter(child => child.name.trim() !== ""),
         participations: formData.participations,
         conclavGroups: formData.conclavGroups,
-        paymentScreenshotUrl: formData.paymentScreenshotUrl,
+        paymentScreenshotUrl: formData.paymentMethod === "manual" ? formData.paymentScreenshotUrl : undefined,
       }
 
       const response = await fetch("/api/registrations", {
@@ -165,19 +175,130 @@ export default function RegistrationForm() {
         throw new Error(data.error || "Registration failed")
       }
 
-      // Success!
-      setSubmitSuccess(true)
-      setRegistrationId(data.registrationId)
+      // Save registration ID
+      const regId = data.registrationId
+      setRegistrationId(regId)
       
-      // Clear localStorage
-      localStorage.removeItem("registrationForm")
+      // If Razorpay payment, initiate payment flow
+      if (formData.paymentMethod === "razorpay") {
+        await handleRazorpayPayment(regId, data.amount || getTicketAmount(formData.ticketType))
+      } else {
+        // Manual payment - show success message
+        setSubmitSuccess(true)
+        localStorage.removeItem("registrationForm")
+      }
       
       console.log("Registration successful:", data)
     } catch (error) {
       console.error("Registration error:", error)
       setSubmitError(error instanceof Error ? error.message : "Failed to submit registration")
-    } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const getTicketAmount = (ticketType: string) => {
+    const prices: Record<string, number> = {
+      Platinum: 3999,
+      Gold: 2999,
+      Silver: 1999,
+    }
+    return prices[ticketType] || 1999
+  }
+
+  const handleRazorpayPayment = async (regId: string, amount: number) => {
+    try {
+      setIsProcessingPayment(true)
+
+      // Load Razorpay script
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        throw new Error("Failed to load Razorpay. Please check your internet connection.")
+      }
+
+      // Create order
+      const orderResponse = await fetch("/api/payments/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, registrationId: regId }),
+      })
+
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json()
+        throw new Error(errorData.error || "Failed to create payment order")
+      }
+
+      const orderData = await orderResponse.json()
+
+      // Razorpay checkout options
+      const options = {
+        key: orderData.keyId,
+        order_id: orderData.orderId,
+        amount: amount * 100,
+        currency: "INR",
+        name: "Chess Event 2025",
+        description: `${formData.ticketType} Ticket - ${regId}`,
+        image: "/logo.png", // Add your logo
+        prefill: {
+          name: formData.name,
+          email: formData.email,
+          contact: formData.contactNo,
+        },
+        handler: async (response: any) => {
+          // Payment successful, verify on backend
+          try {
+            const verifyResponse = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            })
+
+            const verifyData = await verifyResponse.json()
+
+            if (!verifyResponse.ok) {
+              throw new Error(verifyData.error || "Payment verification failed")
+            }
+
+            // Success!
+            console.log("✅ Payment verified successfully:", verifyData)
+            setSubmitSuccess(true)
+            setIsSubmitting(false)
+            setIsProcessingPayment(false)
+            localStorage.removeItem("registrationForm")
+
+            // Redirect to ticket page after 2 seconds
+            setTimeout(() => {
+              router.push(`/ticket/${regId}`)
+            }, 2000)
+          } catch (verifyError) {
+            console.error("Payment verification error:", verifyError)
+            setSubmitError(verifyError instanceof Error ? verifyError.message : "Payment verification failed")
+            setIsSubmitting(false)
+            setIsProcessingPayment(false)
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessingPayment(false)
+            setIsSubmitting(false)
+            setSubmitError("Payment cancelled. You can retry payment from your registration email.")
+          },
+        },
+        theme: {
+          color: "#4F46E5", // Primary color
+        },
+      }
+
+      const razorpay = new (window as any).Razorpay(options)
+      razorpay.open()
+    } catch (error) {
+      console.error("Razorpay payment error:", error)
+      setSubmitError(error instanceof Error ? error.message : "Payment initiation failed")
+      setIsSubmitting(false)
+      setIsProcessingPayment(false)
     }
   }
 
@@ -215,6 +336,7 @@ export default function RegistrationForm() {
                 ],
                 participations: [],
                 conclavGroups: [],
+                paymentMethod: "manual",
                 paymentScreenshot: undefined,
                 paymentScreenshotUrl: undefined,
               })
@@ -299,10 +421,20 @@ export default function RegistrationForm() {
             ) : (
               <Button 
                 onClick={handleSubmit} 
-                disabled={isSubmitting || !formData.paymentScreenshotUrl}
+                disabled={
+                  isSubmitting || 
+                  isProcessingPayment ||
+                  (formData.paymentMethod === "manual" && !formData.paymentScreenshotUrl)
+                }
                 className="bg-primary hover:bg-secondary text-primary-foreground"
               >
-                {isSubmitting ? "Submitting..." : "Complete Registration"}
+                {isProcessingPayment 
+                  ? "Processing Payment..." 
+                  : isSubmitting 
+                    ? "Submitting..." 
+                    : formData.paymentMethod === "razorpay"
+                      ? "Proceed to Payment"
+                      : "Complete Registration"}
               </Button>
             )}
           </div>
