@@ -1,18 +1,56 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+
+interface Sponsor {
+  id: string
+  name: string
+  logo: string
+  website: string
+  category: "Platinum" | "Gold" | "Silver"
+  description: string
+}
 
 export default function Sponsors() {
   const [isHovered, setIsHovered] = useState<number | null>(null)
+  const [sponsors, setSponsors] = useState<Sponsor[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const sponsors = [
-    { name: "Chess Masters", tier: "Platinum", category: "Sports" },
-    { name: "Global Connect", tier: "Gold", category: "Tech" },
-    { name: "Strategy Plus", tier: "Silver", category: "Consulting" },
-    { name: "Elite Events", tier: "Platinum", category: "Events" },
-    { name: "Innovation Labs", tier: "Gold", category: "Tech" },
-    { name: "Community First", tier: "Silver", category: "NGO" },
-  ]
+  useEffect(() => {
+    fetchSponsors()
+  }, [])
+
+  const fetchSponsors = async () => {
+    try {
+      const response = await fetch("/api/sponsors")
+      const data = await response.json()
+      if (data.success) {
+        setSponsors(data.sponsors)
+      }
+    } catch (error) {
+      console.error("Error fetching sponsors:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <section className="py-20 px-4 md:px-6 bg-muted/30">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-primary font-semibold mb-2">Our Partners</p>
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground text-balance">Sponsors & Partners</h2>
+          </div>
+          <div className="text-center text-muted-foreground">Loading sponsors...</div>
+        </div>
+      </section>
+    )
+  }
+
+  if (sponsors.length === 0) {
+    return null
+  }
 
   return (
     <section className="py-20 px-4 md:px-6 bg-muted/30">
@@ -32,10 +70,16 @@ export default function Sponsors() {
                 onMouseLeave={() => setIsHovered(null)}
                 className="flex-shrink-0 w-48 h-32 bg-muted rounded-lg border border-border flex flex-col items-center justify-center cursor-pointer transition-all duration-300 hover:border-primary hover:shadow-lg hover:scale-105"
               >
-                <div className="text-3xl font-bold text-primary mb-2">🏢</div>
-                <h3 className="font-semibold text-foreground text-center">{sponsor.name}</h3>
-                <p className="text-xs text-muted-foreground mt-1">{sponsor.tier}</p>
-                {isHovered === index && <p className="text-xs text-primary mt-2 font-semibold">{sponsor.category}</p>}
+                {sponsor.logo ? (
+                  <img src={sponsor.logo} alt={sponsor.name} className="w-16 h-16 object-contain mb-2" />
+                ) : (
+                  <div className="text-3xl font-bold text-primary mb-2">🏢</div>
+                )}
+                <h3 className="font-semibold text-foreground text-center px-2 truncate w-full">{sponsor.name}</h3>
+                <p className="text-xs text-muted-foreground mt-1">{sponsor.category}</p>
+                {isHovered === index && sponsor.description && (
+                  <p className="text-xs text-primary mt-2 font-semibold truncate w-full px-2">{sponsor.description}</p>
+                )}
               </div>
             ))}
           </div>

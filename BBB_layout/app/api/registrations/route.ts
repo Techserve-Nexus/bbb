@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
       contactNo, 
       email, 
       ticketType = "Silver",
+      paymentMethod = "manual", // "razorpay" or "manual"
       spouseName,
       children = [],
       participations = [],
@@ -31,8 +32,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    if (!paymentScreenshotUrl) {
-      return NextResponse.json({ error: "Payment screenshot is required" }, { status: 400 })
+    // For manual payment, screenshot is required
+    if (paymentMethod === "manual" && !paymentScreenshotUrl) {
+      return NextResponse.json({ error: "Payment screenshot is required for manual payment" }, { status: 400 })
     }
 
     const registrationId = generateRegistrationId()
@@ -45,12 +47,14 @@ export async function POST(req: NextRequest) {
       contactNo,
       email,
       ticketType,
-      paymentStatus: "pending", // Will be verified by admin
+      paymentMethod,
+      paymentStatus: paymentMethod === "razorpay" ? "pending" : "pending", // Both start as pending
+      ticketStatus: "under_review", // Ticket starts as under_review
       spouseName,
       children,
       participations,
       conclavGroups,
-      paymentScreenshotUrl,
+      paymentScreenshotUrl: paymentMethod === "manual" ? paymentScreenshotUrl : undefined,
     })
 
     // Send registration confirmation email (async, don't wait)
@@ -79,7 +83,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       registrationId: registration.registrationId,
-      message: "Registration created successfully",
+      paymentMethod,
+      message: paymentMethod === "razorpay" 
+        ? "Registration created. Please complete payment." 
+        : "Registration created successfully. Payment pending verification.",
     })
   } catch (error) {
     console.error("Error creating registration:", error)

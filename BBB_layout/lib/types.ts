@@ -7,14 +7,40 @@ export interface Registration {
   contactNo: string
   email: string
   ticketType: "Platinum" | "Gold" | "Silver"
+  paymentMethod?: "razorpay" | "manual"
   paymentStatus: "pending" | "success" | "failed"
   paymentId?: string
   paymentReference?: string
+  paymentScreenshotUrl?: string
   spouseName?: string
   children: ChildInfo[]
   participations: string[]
   conclavGroups: string[]
   qrCode?: string
+  ticketStatus?: "under_review" | "active" | "expired" | "used"
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface Payment {
+  id: string
+  registrationId: string
+  paymentMethod: "razorpay" | "manual"
+  
+  // Razorpay fields
+  razorpayOrderId?: string
+  razorpayPaymentId?: string
+  razorpaySignature?: string
+  
+  // Manual payment fields
+  paymentScreenshotUrl?: string
+  upiId?: string
+  transactionId?: string
+  verifiedBy?: string
+  verificationNotes?: string
+  
+  amount: number
+  status: "pending" | "success" | "failed"
   createdAt: Date
   updatedAt: Date
 }

@@ -21,12 +21,17 @@ const RegistrationSchema = new Schema<Registration>(
       enum: ["Platinum", "Gold", "Silver"], 
       required: true 
     },
+    paymentMethod: {
+      type: String,
+      enum: ["razorpay", "manual"],
+      default: "manual"
+    },
     paymentStatus: { 
       type: String, 
       enum: ["pending", "success", "failed"], 
       default: "pending" 
     },
-    paymentId: { type: String },
+    paymentId: { type: String }, // References Payment collection _id
     paymentReference: { type: String },
     paymentScreenshotUrl: { type: String },
     spouseName: { type: String },
@@ -34,6 +39,11 @@ const RegistrationSchema = new Schema<Registration>(
     participations: [{ type: String }],
     conclavGroups: [{ type: String }],
     qrCode: { type: String },
+    ticketStatus: {
+      type: String,
+      enum: ["under_review", "active", "expired", "used"],
+      default: "under_review"
+    },
   },
   {
     timestamps: true,
@@ -76,9 +86,25 @@ const GalleryItemSchema = new Schema(
 const PaymentSchema = new Schema(
   {
     registrationId: { type: String, required: true },
-    razorpayOrderId: { type: String, required: true, unique: true },
+    paymentMethod: { 
+      type: String, 
+      enum: ["razorpay", "manual"], 
+      required: true,
+      default: "manual"
+    },
+    
+    // Razorpay fields
+    razorpayOrderId: { type: String, unique: true, sparse: true },
     razorpayPaymentId: { type: String },
     razorpaySignature: { type: String },
+    
+    // Manual payment fields
+    paymentScreenshotUrl: { type: String },
+    upiId: { type: String }, // UPI ID from which payment was made
+    transactionId: { type: String }, // UPI transaction ID
+    verifiedBy: { type: String }, // Admin email who verified
+    verificationNotes: { type: String }, // Admin notes during verification
+    
     amount: { type: Number, required: true },
     status: { 
       type: String, 
